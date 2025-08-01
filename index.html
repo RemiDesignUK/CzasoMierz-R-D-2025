@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Ustawienia dla aplikacji PWA -->
+  <title>CzasoMierz R-D 2025</title>
+  <meta name="description" content="Nowoczesny i prosty arkusz ewidencji czasu pracy. Działa offline.">
+  <meta name="theme-color" content="#b6e7f2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CzasoMierz R-D">
+  
+  <!-- Google Font Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      /* Paleta kolorów */
+      --bg-gradient-start: #d4f8f2;
+      --bg-gradient-end: #b6e7f2;
+      --card-bg: rgba(255, 255, 255, 0.55);
+      --card-border: rgba(255, 255, 255, 0.7);
+      --card-shadow: rgba(4, 117, 111, 0.1);
+      --text-primary: #0b2d48;
+      --text-secondary: #3a5f7e;
+      --accent-primary: #007991;
+      --accent-secondary: #00a8a8;
+      --accent-text: #ffffff;
+      --input-bg: rgba(255, 255, 255, 0.5);
+      --input-border: #a0c9d7;
+      --input-border-filled: #00a8a8;
+      --danger-text: #ef4444;
+      --day-off-bg: rgba(231, 229, 244, 0.7);
+      --summary-vacation-bg: #5b21b6;
+    }
+    html.dark {
+      --bg-gradient-start: #0a192f;
+      --bg-gradient-end: #172a45;
+      --card-bg: rgba(23, 42, 69, 0.5);
+      --card-border: rgba(45, 66, 99, 0.8);
+      --card-shadow: rgba(0, 0, 0, 0.2);
+      --text-primary: #e6f1ff;
+      --text-secondary: #8892b0;
+      --accent-primary: #64ffda;
+      --accent-secondary: #00e0c6;
+      --accent-text: #0a192f;
+      --input-bg: rgba(45, 66, 99, 0.5);
+      --input-border: #3a5f7e;
+      --input-border-filled: #64ffda;
+      --danger-text: #f87171;
+      --day-off-bg: rgba(76, 51, 122, 0.4);
+      --summary-vacation-bg: #a78bfa;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-gradient-start);
+      background-image: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+      color: var(--text-primary);
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .background-blobs { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden; }
+    .blob1, .blob2 { position: absolute; border-radius: 50%; filter: blur(80px); animation: move 20s infinite alternate; }
+    .blob1 { width: 400px; height: 400px; background-color: rgba(0, 168, 168, 0.2); top: -150px; left: -150px; }
+    .blob2 { width: 300px; height: 300px; background-color: rgba(0, 121, 145, 0.2); bottom: -100px; right: -100px; animation-delay: -10s; }
+    html.dark .blob1 { background-color: rgba(100, 255, 218, 0.1); }
+    html.dark .blob2 { background-color: rgba(0, 121, 145, 0.15); }
+
+    @keyframes move {
+      from { transform: translate(0, 0) scale(1); }
+      to { transform: translate(40px, 60px) scale(1.2); }
+    }
+
+    .container { max-width: 1100px; margin: 1rem auto; padding: 0 1rem; }
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 1.5rem;
+      box-shadow: 0 8px 32px 0 var(--card-shadow);
+      padding: 1.5rem;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 2rem);
+    }
+    
+    .main-controls {
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .app-logo {
+      width: 40px;
+      height: 40px;
+      color: var(--accent-primary);
+    }
+    .app-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    
+    .header-controls { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; flex-shrink: 0; }
+    @media (min-width: 1024px) {
+      .header-controls { flex-direction: row; align-items: center; }
+    }
+    .title-input { font-size: 1rem; font-weight: 500; background: transparent; border: none; border-bottom: 2px solid transparent; width: 100%; padding: 0.25rem 0.5rem; transition: border-color 0.3s; color: var(--text-secondary); }
+    .title-input:focus { outline: none; border-bottom-color: var(--accent-primary); }
+    
+    .user-name-container {
+        margin-bottom: 1rem;
+    }
+    .user-name-input {
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-align: center;
+        color: var(--text-primary);
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+    
+    .date-selectors { display: flex; gap: 0.5rem; }
+    .date-selectors select { background-color: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary); padding: 0.5rem; border-radius: 0.5rem; font-weight: 500; }
+
+    .top-controls { display: flex; justify-content: space-between; align-items: flex-start;}
+    .top-right-controls { display: flex; gap: 0.5rem; }
+
+    .theme-switcher, .info-button { background-color: rgba(255, 255, 255, 0.2); border: 1px solid var(--card-border); color: var(--text-primary); width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; }
+    .theme-switcher:hover, .info-button:hover { background-color: var(--accent-primary); color: var(--accent-text); transform: scale(1.1); box-shadow: 0 0 15px 0 var(--accent-primary); }
+    .theme-switcher svg, .info-button svg { width: 20px; height: 20px; }
+    #sun-icon { display: none; }
+    html.dark #sun-icon { display: block; }
+    html.dark #moon-icon { display: none; }
+
+    .content-area { flex-grow: 1; overflow-y: auto; padding-right: 10px; }
+    .content-area::-webkit-scrollbar { width: 8px; }
+    .content-area::-webkit-scrollbar-track { background: transparent; }
+    .content-area::-webkit-scrollbar-thumb { background-color: var(--input-border); border-radius: 10px; border: 2px solid transparent; background-clip: content-box; }
+    .content-area::-webkit-scrollbar-thumb:hover { background-color: var(--accent-primary); }
+
+    .table-header { display: none; }
+    @media (min-width: 1024px) {
+      .table-header { display: grid; grid-template-columns: 0.8fr 1fr 1fr 1fr 1fr 0.6fr 0.5fr; gap: 1rem; padding: 0.75rem 1rem; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--input-border); }
+    }
+
+    .day-entry { background-color: transparent; border: 1px solid var(--input-border); padding: 1rem; border-radius: 0.75rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem; transition: background-color 0.3s, box-shadow 0.3s; }
+    @media (min-width: 1024px) {
+      .day-entry {
+        grid-template-columns: 0.8fr 1fr 1fr 1fr 1fr 0.6fr 0.5fr;
+        gap: 1rem;
+        margin-bottom: 0;
+        border: none;
+        border-bottom: 1px solid var(--input-border);
+        align-items: center;
+        padding: 0.5rem 1rem;
+      }
+      .day-entry:last-child { border-bottom: none; }
+    }
+
+    .day-entry .day-number { grid-column: span 2; font-size: 1.25rem; font-weight: 600; color: var(--accent-primary); padding-bottom: 0.5rem; border-bottom: 1px solid var(--input-border); }
+    @media (min-width: 1024px) {
+      .day-entry .day-number {
+        grid-column: auto;
+        font-size: 1rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        border-bottom: none;
+        padding-bottom: 0;
+        text-align: center;
+      }
+    }
+
+    .is-sunday .day-number { color: var(--danger-text) !important; font-weight: 700; }
+    .day-entry label { font-weight: 500; font-size: 0.875rem; color: var(--text-secondary); }
+    @media (min-width: 1024px) { .day-entry label { display: none; } }
+    .day-entry input[type="time"] { width: 100%; padding: 0.5rem; border: 1px solid var(--input-border); color: var(--text-primary); border-radius: 0.5rem; font-size: 1rem; background-color: var(--input-bg); transition: all 0.2s; }
+    
+    .day-entry input.filled {
+      border-color: var(--input-border-filled);
+      outline: 2px solid var(--input-border-filled);
+      outline-offset: -1px;
+    }
+    
+    .vacation-controls { grid-column: span 2; display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end; }
+    @media (min-width: 1024px) { .vacation-controls { grid-column: auto; justify-content: center; } }
+    .day-entry.on-vacation { background-color: var(--day-off-bg); }
+    .day-entry.on-vacation input[type="time"] { opacity: 0.4; pointer-events: none; }
+    .daily-total-container { grid-column: span 2; text-align: right; padding: 0.5rem 0; }
+    .daily-total-container .label { font-weight: 500; color: var(--text-secondary); margin-right: 0.5rem; }
+    .daily-total-container .value { font-weight: 700; color: var(--text-primary); font-size: 1.1rem; }
+    @media (min-width: 1024px) {
+      .daily-total-container { grid-column: auto; text-align: center; font-weight: 600; padding: 0; }
+      .daily-total-container .label { display: none; }
+    }
+
+    .summary-container { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; flex-shrink: 0; }
+    .summary-row { display: flex; justify-content: space-between; align-items: center; background-color: var(--accent-primary); color: var(--accent-text); font-weight: 700; padding: 1rem; border-radius: 0.75rem; }
+    .summary-row.vacation-summary { background-color: var(--summary-vacation-bg); }
+    html.dark .summary-row.vacation-summary { color: var(--text-primary); }
+    #save-status { font-size: 0.8rem; font-weight: 500; opacity: 0.8; }
+
+    .button-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+      flex-shrink: 0;
+    }
+    .action-button {
+      color: var(--accent-text);
+      background-image: linear-gradient(to right, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+      box-shadow: 0 4px 15px 0 var(--card-shadow);
+    }
+    .action-button:hover { transform: translateY(-3px); box-shadow: 0 8px 25px 0 var(--card-shadow); }
+    
+    .import-button { background-image: linear-gradient(to right, #3b82f6 0%, #60a5fa 100%); }
+    .clear-button { background-image: linear-gradient(to right, #ef4444 0%, #f87171 100%); }
+    .print-button { background-image: linear-gradient(to right, #64748b 0%, #94a3b8 100%); }
+    .preview-button { background-image: linear-gradient(to right, #8b5cf6 0%, #a78bfa 100%); }
+
+    #panel-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 40; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    #panel-overlay.is-open { opacity: 1; pointer-events: auto; }
+    #preview-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 90%; max-width: 800px; background-color: var(--bg-gradient-end); z-index: 50; transform: translateX(100%); transition: transform 0.3s ease-in-out; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.2); }
+    #preview-panel.is-open { transform: translateX(0); }
+    .panel-header { padding: 1rem; color: var(--text-primary); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); flex-shrink: 0; }
+    .panel-title { font-size: 1.25rem; font-weight: 600; }
+    .close-panel-btn { background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; color: var(--text-primary); }
+    .panel-content { flex-grow: 1; overflow: auto; display: flex; align-items: center; justify-content: center; background-color: var(--bg-gradient-start); }
+    .panel-footer { padding: 1rem; border-top: 1px solid var(--card-border); }
+    #download-canvas-btn { width: 100%; }
+
+    #info-modal {
+        position: fixed; inset: 0; z-index: 60;
+        display: flex; align-items: center; justify-content: center;
+        background-color: rgba(0,0,0,0.6);
+        backdrop-filter: blur(4px);
+        opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    #info-modal.is-open { opacity: 1; pointer-events: auto; }
+    .info-modal-content {
+        background-color: var(--card-bg);
+        padding: 2rem;
+        border-radius: 1rem;
+        max-width: 500px;
+        width: 90%;
+        border: 1px solid var(--card-border);
+        box-shadow: 0 8px 32px 0 var(--card-shadow);
+    }
+    .info-modal-content h3 { font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem; }
+    .info-modal-content p { font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem; }
+    .info-modal-content strong { color: var(--accent-primary); font-weight: 600; }
+    .info-modal-close-btn {
+        display: block;
+        margin-top: 1.5rem;
+        width: 100%;
+    }
+
+    @media (orientation: landscape) and (max-height: 500px) {
+      .card { flex-direction: row; gap: 1rem; padding: 0.75rem; }
+      .main-controls {
+        display: flex;
+        flex-direction: column;
+        width: 280px;
+        flex-shrink: 0;
+      }
+      .content-area {
+        flex-grow: 1;
+        padding-right: 5px;
+      }
+      .control-panel {
+          flex-grow: 1;
+          display: flex;
+          flex-direction: column;
+      }
+      .header-controls, .summary-container, .button-container {
+        flex-grow: 0;
+        margin-bottom: 0.5rem;
+        margin-top: 0;
+      }
+      .button-container {
+        flex-direction: column;
+        align-items: stretch;
+        margin-top: auto;
+      }
+    }
+    
+    @media (max-width: 767px) {
+        .card { padding: 0.75rem; max-height: calc(100vh - 1.5rem); }
+        .app-header { margin-bottom: 0.5rem; }
+        .app-logo { width: 32px; height: 32px; }
+        .app-title { font-size: 1.5rem; }
+        .title-input { font-size: 0.9rem; text-align: center; }
+        .header-controls { gap: 0.5rem; margin-bottom: 0.75rem; }
+        .date-selectors select { padding: 0.4rem; font-size: 0.9rem; }
+        .day-entry { padding: 0.75rem; gap: 0.5rem; }
+        .summary-container { margin-top: 0.5rem; gap: 0.25rem; }
+        .summary-row { padding: 0.5rem 0.75rem; font-size: 0.8rem; border-radius: 0.5rem; }
+        .button-container { margin-top: 0.75rem; gap: 0.5rem; }
+        .action-button { padding: 0.5rem 0.75rem; font-size: 0.8rem; border-radius: 0.5rem; }
+        .top-controls { margin-bottom: 0.5rem; }
+        .theme-switcher, .info-button { top: 0.5rem; right: 0.5rem; width: 32px; height: 32px; }
+        .theme-switcher svg, .info-button svg { width: 16px; height: 16px; }
+    }
+
+    @media print {
+      body, html { margin: 0; padding: 0; background: #fff !important; }
+      #main-container, .background-blobs, #panel-overlay, #preview-panel, #info-modal { display: none !important; }
+      #print-container { display: block !important; }
+      #print-container img { width: 100%; height: auto; }
+    }
+
+    #print-container { display: none; }
+    .cursor-pointer { cursor: pointer; }
+    .text-xs { font-size: 0.75rem; line-height: 1rem; }
+    .font-normal { font-weight: 400; }
+  </style>
+</head>
+<body>
+  <div class="background-blobs">
+    <div class="blob1"></div>
+    <div class="blob2"></div>
+  </div>
+
+  <div id="print-container"></div>
+
+  <div class="container" id="main-container">
+    <div class="card">
+      <div class="main-controls">
+        <div class="top-controls">
+          <div class="app-header">
+            <svg class="app-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="48" stroke="currentColor" stroke-width="4"/>
+                <path d="M30 25V75" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M30 25H48C56.8366 25 64 32.1634 64 41V41C64 49.8366 56.8366 57 48 57H30" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M50 57L70 75" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+            </svg>
+            <h1 class="app-title">CzasoMierz R-D 2025</h1>
+          </div>
+          <div class="top-right-controls">
+            <button id="info-btn" class="info-button" title="Jak zainstalować aplikację?">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+              </svg>
+            </button>
+            <button id="theme-switcher" class="theme-switcher" title="Przełącz tryb jasny/ciemny">
+              <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.455 2.104a.75.75 0 00-.98 1.026A7.5 7.5 0 0018 9.75a.75.75 0 011.5 0A9 9 0 019.478 2.055a.75.75 0 00-2.023.049z" clip-rule="evenodd"></path></svg>
+              <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3.5a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 3.5zM10 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15zM5.022 5.022a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zM13.859 13.86a.75.75 0 011.06 0l1.06 1.06a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zM3.5 10a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 013.5 10zM15 10a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 0115 10zM5.022 14.978a.75.75 0 010-1.06l1.06-1.061a.75.75 0 011.06 1.06l-1.06 1.06a.75.75 0 01-1.06 0zM13.859 6.14a.75.75 0 010-1.06l1.06-1.06a.75.75 0 011.06 1.06l-1.06 1.06a.75.75 0 01-1.06 0zM10 7a3 3 0 100 6 3 3 0 000-6z"></path></svg>
+            </button>
+          </div>
+        </div>
+        
+        <div class="control-panel">
+          <div class="header-controls">
+            <input type="text" id="custom-title-input" class="title-input" placeholder="Wpisz nazwę arkusza (np. dla klienta)..." />
+            <div class="date-selectors">
+              <select id="month-select"></select>
+              <select id="year-select"></select>
+            </div>
+          </div>
+          <div class="user-name-container">
+            <input type="text" id="user-name-input" class="title-input user-name-input" placeholder="Wpisz imię i nazwisko..." />
+          </div>
+          <div class="summary-container">
+            <div class="summary-row">
+              <span id="summary-label" class="total-label">Suma godzin - ...:</span>
+              <span id="save-status"></span>
+              <span id="monthly-total" class="total-value">0 godz. 0 min</span>
+            </div>
+            <div id="vacation-summary-row" class="summary-row vacation-summary">
+              <span class="total-label">Urlop:</span>
+              <span id="monthly-vacation-total" class="total-value">0 dni</span>
+            </div>
+          </div>
+          <div class="button-container">
+            <input type="file" id="import-file-input" accept=".html" style="display: none;" />
+            <button id="import-btn" class="action-button import-button">⬆️ Wczytaj</button>
+            <button id="save-data-btn" class="action-button save-button">💾 Zapisz</button>
+            <button id="print-btn" class="action-button print-button">🖨️ Drukuj</button>
+            <button id="preview-btn" class="action-button preview-button">🖼️ Zrzut PNG</button>
+            <button id="clear-data-btn" class="action-button clear-button">Wyczyść</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-area">
+        <div class="table-header">
+          <div>Dzień</div> <div>Start 1</div> <div>Koniec 1</div>
+          <div>Start 2</div> <div>Koniec 2</div> <div>Suma</div> <div>Urlop</div>
+        </div>
+        <div id="timesheet-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-overlay"></div>
+  <div id="preview-panel">
+    <div class="panel-header">
+      <span class="panel-title">Podgląd graficzny</span>
+      <button id="close-panel-btn" class="close-panel-btn">×</button>
+    </div>
+    <div class="panel-content">
+      <canvas id="preview-canvas"></canvas>
+    </div>
+    <div class="panel-footer">
+      <button id="download-canvas-btn" class="action-button">Pobierz jako PNG</button>
+    </div>
+  </div>
+
+  <div id="info-modal">
+    <div class="info-modal-content">
+        <h3>Aplikacja CzasoMierz R-D jest tworzona przez REMI-DESIGN</h3>
+        <p>Możesz dodać <strong>CzasoMierz R-D</strong> do ekranu głównego swojego telefonu, aby działał jak zwykła aplikacja.</p>
+        <p><strong>Na iPhonie (iOS):</strong> Naciśnij przycisk Udostępnij <svg style="display:inline; width:16px; height:16px;" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/></svg> w przeglądarce Safari, a następnie wybierz "Dodaj do ekranu początkowego".</p>
+        <p><strong>Na Androidzie:</strong> Otwórz menu przeglądarki (zwykle trzy kropki) i wybierz "Zainstaluj aplikację" lub "Dodaj do ekranu głównego".</p>
+        <button id="info-modal-close-btn" class="action-button info-modal-close-btn">Rozumiem</button>
+    </div>
+  </div>
+
+  <script id="app-data" type="application/json">
+    { "userName": "", "customTitle": "Ewidencja Czasu Pracy", "currentYear": 2025, "currentMonth": 6, "allData": {} }
+  </script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const ui = {
+        themeSwitcher: document.getElementById('theme-switcher'),
+        infoBtn: document.getElementById('info-btn'),
+        infoModal: document.getElementById('info-modal'),
+        infoModalCloseBtn: document.getElementById('info-modal-close-btn'),
+        userNameInput: document.getElementById('user-name-input'),
+        customTitleInput: document.getElementById('custom-title-input'),
+        monthSelect: document.getElementById('month-select'),
+        yearSelect: document.getElementById('year-select'),
+        summaryLabel: document.getElementById('summary-label'),
+        saveStatus: document.getElementById('save-status'),
+        monthlyTotalCell: document.getElementById('monthly-total'),
+        monthlyVacationCell: document.getElementById('monthly-vacation-total'),
+        importBtn: document.getElementById('import-btn'),
+        importFileInput: document.getElementById('import-file-input'),
+        saveDataBtn: document.getElementById('save-data-btn'),
+        printBtn: document.getElementById('print-btn'),
+        previewBtn: document.getElementById('preview-btn'),
+        clearDataBtn: document.getElementById('clear-data-btn'),
+        closePanelBtn: document.getElementById('close-panel-btn'),
+        panelOverlay: document.getElementById('panel-overlay'),
+        previewPanel: document.getElementById('preview-panel'),
+        canvas: document.getElementById('preview-canvas'),
+        downloadCanvasBtn: document.getElementById('download-canvas-btn'),
+        timesheetBody: document.getElementById('timesheet-body'),
+        mainContainer: document.getElementById('main-container'),
+        printContainer: document.getElementById('print-container'),
+      };
+
+      let appState = {
+        userName: "",
+        customTitle: "Ewidencja dla...",
+        currentYear: new Date().getFullYear(),
+        currentMonth: new Date().getMonth(),
+        allData: {}
+      };
+
+      const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
+      const dayNames = ["Niedz.", "Pon.", "Wt.", "Śr.", "Czw.", "Pt.", "Sob."];
+      const themeKey = 'theme-preference';
+      const storageKey = 'czasomierz-rd-data';
+
+      function setupPWA() {
+        const svgIcon = `<svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="20" fill="#007991"/><path d="M30 25V75" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 25H48C56.8366 25 64 32.1634 64 41V41C64 49.8366 56.8366 57 48 57H30" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M50 57L70 75" stroke="white" stroke-width="8" stroke-linecap="round"/></svg>`;
+        const iconUrl = `data:image/svg+xml;base64,${btoa(svgIcon)}`;
+
+        const manifest = {
+            short_name: "CzasoMierz R-D",
+            name: "CzasoMierz R-D 2025",
+            start_url: ".",
+            display: "standalone",
+            background_color: "#d4f8f2",
+            theme_color: "#007991",
+            icons: [ { src: iconUrl, type: "image/svg+xml", sizes: "any" } ],
+        };
+
+        const manifestURL = `data:application/json;base64,${btoa(JSON.stringify(manifest))}`;
+        const linkManifest = document.createElement('link');
+        linkManifest.rel = 'manifest';
+        linkManifest.href = manifestURL;
+        document.head.appendChild(linkManifest);
+        
+        const linkAppleIcon = document.createElement('link');
+        linkAppleIcon.rel = 'apple-touch-icon';
+        linkAppleIcon.href = iconUrl;
+        document.head.appendChild(linkAppleIcon);
+      }
+
+      const applyTheme = (theme) => document.documentElement.classList.toggle('dark', theme === 'dark');
+      const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+      const timeToMinutes = (t) => t ? (Number(t.split(':')[0]) * 60 + Number(t.split(':')[1])) : 0;
+      const formatMinutes = (m) => m === 0 ? '0 godz. 0 min' : `${Math.floor(m / 60)} godz. ${m % 60} min`;
+      const formatVacationDays = (d) => `${d} ${d === 1 ? 'dzień' : (d >= 2 && d <= 4 ? 'dni' : 'dni')}`;
+
+      function init() {
+        setupPWA();
+        loadStateFromLocalStorage();
+        loadData();
+        populateDateSelectors();
+        updateUIFromState();
+        addEventListeners();
+        renderCurrentMonth();
+        const savedTheme = localStorage.getItem(themeKey);
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applyTheme(savedTheme || (systemPrefersDark ? 'dark' : 'light'));
+      }
+
+      function saveStateToLocalStorage() {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(appState));
+          ui.saveStatus.textContent = '✓';
+          setTimeout(() => ui.saveStatus.textContent = '', 2000);
+        } catch (e) {
+          console.error("Błąd zapisu do LocalStorage:", e);
+          ui.saveStatus.textContent = 'Błąd!';
+        }
+      }
+
+      function loadStateFromLocalStorage() {
+        const savedState = localStorage.getItem(storageKey);
+        if (savedState) {
+          try {
+            appState = JSON.parse(savedState);
+          } catch (e) {
+            console.error("Błąd odczytu z LocalStorage:", e);
+          }
+        }
+      }
+
+      function loadData() {
+        if (localStorage.getItem(storageKey)) return;
+        const dataElement = document.getElementById('app-data');
+        if (dataElement && dataElement.textContent.trim()) {
+          try {
+            const parsedData = JSON.parse(dataElement.textContent);
+            if (parsedData.currentYear && parsedData.allData) {
+              appState = parsedData;
+              saveStateToLocalStorage();
+            }
+          } catch (e) {
+            console.error("Error parsing embedded data:", e);
+          }
+        }
+      }
+
+      function populateDateSelectors() {
+        monthNames.forEach((name, i) => ui.monthSelect.add(new Option(name, i)));
+        const currentY = new Date().getFullYear();
+        for (let i = currentY - 10; i <= currentY + 10; i++) {
+          ui.yearSelect.add(new Option(i, i));
+        }
+      }
+
+      function updateUIFromState() {
+        ui.userNameInput.value = appState.userName || '';
+        ui.customTitleInput.value = appState.customTitle;
+        ui.yearSelect.value = appState.currentYear;
+        ui.monthSelect.value = appState.currentMonth;
+        ui.summaryLabel.textContent = `Suma godzin - ${monthNames[appState.currentMonth]}:`;
+      }
+
+      function addEventListeners() {
+        ui.themeSwitcher.addEventListener('click', () => {
+          const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+          localStorage.setItem(themeKey, newTheme);
+          applyTheme(newTheme);
+        });
+        ui.infoBtn.addEventListener('click', () => ui.infoModal.classList.add('is-open'));
+        ui.infoModalCloseBtn.addEventListener('click', () => ui.infoModal.classList.remove('is-open'));
+        
+        ui.userNameInput.addEventListener('input', (e) => {
+            appState.userName = e.target.value;
+            saveStateToLocalStorage();
+        });
+
+        ui.customTitleInput.addEventListener('input', (e) => {
+          appState.customTitle = e.target.value;
+          saveStateToLocalStorage();
+        });
+        ui.monthSelect.addEventListener('change', handleDateChange);
+        ui.yearSelect.addEventListener('change', handleDateChange);
+        ui.saveDataBtn.addEventListener('click', saveFileWithData);
+        ui.printBtn.addEventListener('click', handlePrint);
+        ui.clearDataBtn.addEventListener('click', clearCurrentMonth);
+        ui.importBtn.addEventListener('click', () => ui.importFileInput.click());
+        ui.importFileInput.addEventListener('change', handleFileImport);
+        ui.previewBtn.addEventListener('click', openPreviewPanel);
+        ui.closePanelBtn.addEventListener('click', closePreviewPanel);
+        ui.panelOverlay.addEventListener('click', closePreviewPanel);
+        ui.downloadCanvasBtn.addEventListener('click', downloadCanvas);
+      }
+
+      function handleDateChange() {
+        appState.currentYear = parseInt(ui.yearSelect.value, 10);
+        appState.currentMonth = parseInt(ui.monthSelect.value, 10);
+        renderCurrentMonth();
+        updateUIFromState();
+        saveStateToLocalStorage();
+      }
+
+      function handlePrint() {
+        drawTimesheetOnCanvas();
+        const dataUrl = ui.canvas.toDataURL('image/png');
+        ui.printContainer.innerHTML = `<img src="${dataUrl}" alt="Ewidencja czasu pracy">`;
+        window.print();
+      }
+
+      function openPreviewPanel() {
+        ui.previewPanel.classList.add('is-open');
+        ui.panelOverlay.classList.add('is-open');
+        drawTimesheetOnCanvas();
+      }
+
+      function closePreviewPanel() {
+        ui.previewPanel.classList.remove('is-open');
+        ui.panelOverlay.classList.remove('is-open');
+      }
+
+      function downloadCanvas() {
+        const link = document.createElement('a');
+        link.download = `CzasoMierz-RD-${appState.customTitle.replace(/ /g, '_')}-${appState.currentYear}-${appState.currentMonth + 1}.png`;
+        link.href = ui.canvas.toDataURL('image/png');
+        link.click();
+      }
+
+      function drawTimesheetOnCanvas() {
+        const canvas = ui.canvas;
+        const ctx = canvas.getContext('2d');
+        const dataKey = `${appState.currentYear}-${appState.currentMonth}`;
+        const monthData = appState.allData[dataKey] || [];
+        if (!monthData.length) return;
+
+        const dpi = 300;
+        const a4_width_px = Math.floor(8.27 * dpi);
+        const a4_height_px = Math.floor(11.69 * dpi);
+        
+        canvas.width = a4_width_px;
+        canvas.height = a4_height_px;
+
+        const margin = 150;
+        const fontBase = 'Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // POPRAWKA: Zmiana stylu i położenia nazwy aplikacji
+        ctx.save();
+        ctx.font = `bold 48px ${fontBase}`;
+        ctx.fillStyle = '#007991';
+        ctx.globalAlpha = 0.6;
+        ctx.textAlign = 'left';
+        ctx.fillText("CzasoMierz R-D 2025", margin, margin - 50);
+        ctx.restore();
+
+        ctx.fillStyle = '#0b2d48';
+        ctx.font = `bold 72px ${fontBase}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(appState.userName || 'Imię i Nazwisko', canvas.width / 2, margin + 180);
+
+        ctx.fillStyle = '#3a5f7e';
+        ctx.font = `64px ${fontBase}`;
+        ctx.fillText(`${appState.customTitle} - ${monthNames[appState.currentMonth]} ${appState.currentYear}`, canvas.width / 2, margin + 260);
+
+        const tableYStart = margin + 380;
+        const tableHeaders = ['Dzień', 'Start 1', 'Koniec 1', 'Start 2', 'Koniec 2', 'Suma Dzienna', 'Status'];
+        const colWidths = [0.15, 0.12, 0.12, 0.12, 0.12, 0.2, 0.17];
+        const tableWidth = canvas.width - (margin * 2);
+        
+        const availableHeight = canvas.height - tableYStart - margin - 200;
+        const numDays = monthData.length;
+        const headerHeight = 100;
+        const rowHeight = (availableHeight - headerHeight) / numDays;
+        const fontSize = Math.floor(rowHeight * 0.4);
+        
+        ctx.fillStyle = '#4A5568';
+        ctx.fillRect(margin, tableYStart, tableWidth, headerHeight);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold ${fontSize * 1.1}px ${fontBase}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        let currentX = margin;
+        for (let i = 0; i < tableHeaders.length; i++) {
+            const colW = tableWidth * colWidths[i];
+            ctx.fillText(tableHeaders[i], currentX + colW / 2, tableYStart + headerHeight / 2);
+            currentX += colW;
+        }
+
+        let totalMinutes = 0;
+        let totalVacationDays = 0;
+        ctx.font = `${fontSize}px ${fontBase}`;
+
+        monthData.forEach((dayData, index) => {
+            const y = tableYStart + headerHeight + (index * rowHeight);
+            const date = new Date(appState.currentYear, appState.currentMonth, dayData.day);
+            const isSunday = date.getDay() === 0;
+
+            ctx.fillStyle = (index % 2 === 0) ? '#FFFFFF' : '#F7FAFC';
+            if (dayData.onVacation) ctx.fillStyle = '#F0F0F5';
+            ctx.fillRect(margin, y, tableWidth, rowHeight);
+            
+            let x = margin;
+            ctx.fillStyle = '#2D3748';
+            if (isSunday && !dayData.onVacation) ctx.fillStyle = '#C53030';
+
+            const dayText = `${dayData.day} ${dayNames[date.getDay()]}`;
+            ctx.fillText(dayText, x + (tableWidth * colWidths[0]) / 2, y + rowHeight / 2);
+            x += tableWidth * colWidths[0];
+
+            // POPRAWKA: Logika dla kolumny STATUS
+            let statusText = '';
+            let statusStyle = 'normal';
+            
+            if (dayData.onVacation) {
+                totalVacationDays++;
+                statusText = 'URLOP';
+                statusStyle = 'italic';
+                ctx.fillStyle = '#718096';
+                ctx.font = `${statusStyle} ${fontSize}px ${fontBase}`;
+                ctx.fillText('URLOP', x + (tableWidth * (colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4])) / 2, y + rowHeight / 2);
+            } else {
+                totalMinutes += dayData.totalMinutes || 0;
+                statusText = dayData.totalMinutes > 0 ? 'PRACA' : 'OFF';
+                const fields = [dayData.start1, dayData.end1, dayData.start2, dayData.end2];
+                for (let i = 0; i < fields.length; i++) {
+                    ctx.fillText(fields[i] || '-', x + (tableWidth * colWidths[i+1]) / 2, y + rowHeight / 2);
+                    x += tableWidth * colWidths[i+1];
+                }
+                ctx.font = `bold ${fontSize}px ${fontBase}`;
+                ctx.fillText(formatMinutes(dayData.totalMinutes), x + (tableWidth * colWidths[5]) / 2, y + rowHeight / 2);
+            }
+
+            ctx.font = `${statusStyle} ${fontSize}px ${fontBase}`;
+            x = margin + tableWidth * colWidths.slice(0, 6).reduce((a, b) => a + b, 0);
+            ctx.fillStyle = '#2D3748';
+            if (statusText === 'OFF') ctx.fillStyle = '#A0AEC0';
+            ctx.fillText(statusText, x + (tableWidth * colWidths[6]) / 2, y + rowHeight / 2);
+            
+            ctx.strokeStyle = '#E2E8F0';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(margin, y + rowHeight);
+            ctx.lineTo(margin + tableWidth, y + rowHeight);
+            ctx.stroke();
+        });
+        
+        const footerY = canvas.height - margin - 50;
+        const rightColX = canvas.width - margin;
+        const leftColX = rightColX - 550;
+
+        ctx.font = `bold ${fontSize * 1.4}px ${fontBase}`;
+        ctx.fillStyle = '#0b2d48';
+        ctx.textAlign = 'right';
+        ctx.fillText('Suma godzin:', leftColX, footerY - (fontSize * 1.5));
+        ctx.fillText('Dni urlopu:', leftColX, footerY);
+        
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#007991';
+        ctx.fillText(formatMinutes(totalMinutes), leftColX + 20, footerY - (fontSize * 1.5));
+        ctx.fillStyle = '#5b21b6';
+        ctx.fillText(formatVacationDays(totalVacationDays), leftColX + 20, footerY);
+      }
+
+      function handleFileImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const fileContent = event.target.result;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(fileContent, 'text/html');
+            const dataScript = doc.getElementById('app-data');
+            if (!dataScript) throw new Error("Brak danych w pliku");
+            const importedState = JSON.parse(dataScript.textContent);
+            appState = importedState;
+            updateUIFromState();
+            renderCurrentMonth();
+            saveStateToLocalStorage();
+            alert("Dane zostały pomyślnie zaimportowane!");
+          } catch (err) {
+            console.error("Błąd importu:", err);
+            alert("Wystąpił błąd podczas importu pliku. Upewnij się, że plik jest poprawny.");
+          } finally {
+            ui.importFileInput.value = '';
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      function renderCurrentMonth() {
+        const { currentYear: year, currentMonth: month } = appState;
+        const daysCount = getDaysInMonth(year, month);
+        const dataKey = `${year}-${month}`;
+        if (!appState.allData[dataKey] || appState.allData[dataKey].length !== daysCount) {
+          const oldData = appState.allData[dataKey] || [];
+          appState.allData[dataKey] = Array.from({ length: daysCount }, (_, i) =>
+            oldData[i] || { day: i + 1, start1: '', end1: '', start2: '', end2: '', onVacation: false }
+          );
+        }
+        const monthData = appState.allData[dataKey];
+        renderDayEntries(monthData, year, month);
+        calculateTotals(monthData);
+      }
+
+      function renderDayEntries(monthData, year, month) {
+        ui.timesheetBody.innerHTML = '';
+        monthData.forEach(rowData => {
+          const entry = document.createElement('div');
+          entry.className = 'day-entry';
+          const date = new Date(year, month, rowData.day);
+          const dayOfWeek = date.getDay();
+          if (dayOfWeek === 0) entry.classList.add('is-sunday');
+          entry.innerHTML += `<div class="day-number">${rowData.day} <span class="text-xs font-normal">${dayNames[dayOfWeek]}</span></div>`;
+          const fields = [
+            { id: 'start1', label: 'Start 1' }, { id: 'end1', label: 'Koniec 1' },
+            { id: 'start2', label: 'Start 2' }, { id: 'end2', label: 'Koniec 2' },
+          ];
+          fields.forEach(field => {
+            const inputContainer = document.createElement('div');
+            const ariaLabel = `${field.label} dla dnia ${rowData.day}`;
+            inputContainer.innerHTML = `<label for="${field.id}-${rowData.day}">${field.label}</label><input type="time" id="${field.id}-${rowData.day}" aria-label="${ariaLabel}">`;
+            const input = inputContainer.querySelector('input');
+            input.value = rowData[field.id] || '';
+            const handleFilledState = (target) => target.classList.toggle('filled', !!target.value);
+            input.addEventListener('input', (e) => {
+              rowData[field.id] = e.target.value;
+              handleFilledState(e.target);
+              calculateTotals(monthData);
+              saveStateToLocalStorage();
+            });
+            handleFilledState(input);
+            entry.appendChild(inputContainer);
+          });
+          const totalContainer = document.createElement('div');
+          totalContainer.className = 'daily-total-container';
+          totalContainer.id = `daily-total-${rowData.day}`;
+          totalContainer.innerHTML = `<span class="label">Suma:</span><span class="value">0 godz. 0 min</span>`;
+          entry.appendChild(totalContainer);
+          const vacationContainer = document.createElement('div');
+          vacationContainer.className = 'vacation-controls';
+          vacationContainer.innerHTML = `<label for="onVacation-${rowData.day}" class="text-xs cursor-pointer">Urlop</label><input type="checkbox" id="onVacation-${rowData.day}" class="cursor-pointer">`;
+          const checkbox = vacationContainer.querySelector('input');
+          checkbox.checked = rowData.onVacation;
+          const timeInputs = entry.querySelectorAll('input[type="time"]');
+          const toggleVacation = (isOnVacation) => {
+            rowData.onVacation = isOnVacation;
+            entry.classList.toggle('on-vacation', isOnVacation);
+            timeInputs.forEach(inp => inp.disabled = isOnVacation);
+            calculateTotals(monthData);
+            saveStateToLocalStorage();
+          };
+          checkbox.addEventListener('change', (e) => toggleVacation(e.target.checked));
+          if (rowData.onVacation) {
+            entry.classList.add('on-vacation');
+            timeInputs.forEach(inp => inp.disabled = true);
+          }
+          entry.appendChild(vacationContainer);
+          ui.timesheetBody.appendChild(entry);
+        });
+      }
+
+      function calculateTotals(monthData) {
+        if (!monthData) return;
+        let monthlyTotalMinutes = 0;
+        let monthlyVacationDays = 0;
+        monthData.forEach((rowData) => {
+          let dailyTotal = 0;
+          if (rowData.onVacation) {
+            monthlyVacationDays++;
+          } else {
+            const s1 = timeToMinutes(rowData.start1), e1 = timeToMinutes(rowData.end1);
+            const s2 = timeToMinutes(rowData.start2), e2 = timeToMinutes(rowData.end2);
+            const shift1 = (s1 && e1) ? (e1 >= s1 ? e1 - s1 : 1440 - s1 + e1) : 0;
+            const shift2 = (s2 && e2) ? (e2 >= s2 ? e2 - s2 : 1440 - s2 + e2) : 0;
+            dailyTotal = shift1 + shift2;
+          }
+          rowData.totalMinutes = dailyTotal;
+          monthlyTotalMinutes += dailyTotal;
+          const dailyEl = document.querySelector(`#daily-total-${rowData.day} .value`);
+          if (dailyEl) {
+            dailyEl.textContent = formatMinutes(dailyTotal);
+          }
+        });
+        ui.monthlyTotalCell.textContent = formatMinutes(monthlyTotalMinutes);
+        ui.monthlyVacationCell.textContent = formatVacationDays(monthlyVacationDays);
+      }
+
+      function saveFileWithData() {
+        saveStateToLocalStorage();
+        const newDoc = document.cloneNode(true);
+        newDoc.getElementById('app-data').textContent = JSON.stringify(appState, null, 2);
+        const blob = new Blob([newDoc.documentElement.outerHTML], { type: 'text/html' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `CzasoMierz-RD-${appState.customTitle.replace(/ /g, '_') || 'arkusz'}-${appState.currentYear}-${appState.currentMonth + 1}.html`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }
+
+      function clearCurrentMonth() {
+        if (window.confirm(`Wyczyścić dane dla ${monthNames[appState.currentMonth]} ${appState.currentYear}? Tej operacji nie można cofnąć.`)) {
+          delete appState.allData[`${appState.currentYear}-${appState.currentMonth}`];
+          renderCurrentMonth();
+          saveStateToLocalStorage();
+        }
+      }
+
+      init();
+    });
+  </script>
+</body>
+</html>
